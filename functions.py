@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import List
 from models import Client, Merchant, Transaction
 import shutil
+import boto3
 
 # Generate clients for sample csv
 def generate_clients(n: int) -> List[Client]:
@@ -72,3 +73,9 @@ def remove_all_files(folder: str = directories.DATA_DIR):
         print_centered(f"Удалён: {file}")
     if not files:
         print_centered(f"Директория пуста")
+
+# Initiate MinIO db
+def upload_to_minio(data_dir = directories.DATA_DIR, bucket_name = directories.BUCKET_DIR)
+
+    # Create connection with S3 client
+    s3 = boto3
