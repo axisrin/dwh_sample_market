@@ -1,4 +1,3 @@
-import models
 from functions import generate_clients, generate_merchants, generate_transactions, save_to_csv, print_centered, \
     remove_all_files
 

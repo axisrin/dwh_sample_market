@@ -4,7 +4,7 @@ import random
 import directories
 import os
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List
 from models import Client, Merchant, Transaction
 import shutil
 
