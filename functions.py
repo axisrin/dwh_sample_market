@@ -1,9 +1,12 @@
 import csv
+import glob
 import random
-from dataclasses import dataclass
+import directories
+import os
 from datetime import datetime, timedelta
 from typing import Optional, List
 from models import Client, Merchant, Transaction
+import shutil
 
 # Generate clients for sample csv
 def generate_clients(n: int) -> List[Client]:
@@ -48,9 +51,25 @@ def generate_transactions(n:int, clients: List[Client], merchants: List[Merchant
     return transactions
 
 # Saving generated data with csv type
-def save_to_csv(filename: str, objects: List[object], fieldnames: List[str]):
-    with open(filename, mode='w', newline='', encoding='utf-8') as f:
+def save_to_csv(filename: str, objects: List[object], fieldnames: List[str], folder: str = directories.DATA_DIR):
+    path = os.path.join(folder, filename)
+    remove_all_files()
+    with open(path, mode='w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for obj in objects:
             writer.writerow({k: getattr(obj,k) for k in fieldnames})
+
+# Pretty print for logs
+def print_centered(text: str, fill: str = "-"):
+    width = shutil.get_terminal_size().columns
+    print(f"{text:{fill}^{width}}")
+
+# Clean directory
+def remove_all_files(folder: str = directories.DATA_DIR):
+    files = glob.glob(os.path.join(folder, "*"))
+    for file in files:
+        os.remove(file)
+        print_centered(f"Удалён: {file}")
+    if not files:
+        print_centered(f"Директория пуста")

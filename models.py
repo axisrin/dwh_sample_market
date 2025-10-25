@@ -1,5 +1,3 @@
-import csv
-import random
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -23,7 +21,7 @@ class Merchant:
 @dataclass
 class Transaction:
     transaction_id: Optional[int]
-    merchant: Merchant
-    client: Client
+    merchant_id: int
+    client_id: int
     transaction_dttm: datetime
     transaction_amt: float
