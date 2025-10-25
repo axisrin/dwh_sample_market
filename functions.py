@@ -53,7 +53,6 @@ def generate_transactions(n:int, clients: List[Client], merchants: List[Merchant
 # Saving generated data with csv type
 def save_to_csv(filename: str, objects: List[object], fieldnames: List[str], folder: str = directories.DATA_DIR):
     path = os.path.join(folder, filename)
-    remove_all_files()
     with open(path, mode='w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
