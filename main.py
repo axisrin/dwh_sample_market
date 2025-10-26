@@ -2,6 +2,7 @@ from functions import generate_clients, generate_merchants, generate_transaction
     remove_all_files
 
 if __name__ == "__main__":
+
     clients = generate_clients(20)
     merchants = generate_merchants(3)
     transactions = generate_transactions(100, clients, merchants)
@@ -13,7 +14,7 @@ if __name__ == "__main__":
     save_to_csv("clients.csv",clients, ["client_id","gender","age"])
     print_centered("Файл clients.csv успешно создан!")
 
-    save_to_csv("merchants.csv", merchants, ["merchant_id","latitude","longitude"])
+    save_to_csv("merchants.csv", merchants, ["merchant_id","latitude","longtitude","mcc_cd"])
     print_centered("Файл merchants.csv успешно создан!")
 
     save_to_csv("transactions.csv", transactions,

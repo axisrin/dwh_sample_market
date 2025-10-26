@@ -1,0 +1,177 @@
+version: "3.8"
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks: [etl_net]
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_DB: shop
+      POSTGRES_USER: etl_user
+      POSTGRES_PASSWORD: etl_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks: [etl_net]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U etl_user -d shop -h 127.0.0.1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nifi:
+    image: apache/nifi:latest
+    container_name: nifi
+    environment:
+      NIFI_WEB_HTTP_PORT: 8080
+      NIFI_WEB_HTTPS_PORT: 8443
+      SINGLE_USER_CREDENTIALS_USERNAME: admin
+      SINGLE_USER_CREDENTIALS_PASSWORD: admin123admin123admin123
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    depends_on:
+      - minio
+      - postgres
+      - db-setup
+    volumes:
+      - ./data:/opt/nifi/data
+      - ./nifi/drivers/postgresql-42.7.4.jar:/opt/nifi/nifi-current/extensions/jdbc/postgresql-42.7.4.jar:ro
+    networks: [etl_net]
+
+  generator:
+    image: python:3.12-slim
+    container_name: generator
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - ./data:/app/data
+    networks: [etl_net]
+    entrypoint: ["/bin/sh","-c"]
+    command: >
+      'set -e
+       echo "[generator] starting at $(date -Is)"
+       python -u main.py
+       echo "[generator] finished at $(date -Is)"'
+
+  mc-uploader:
+    image: minio/mc:latest
+    container_name: mc-uploader
+    depends_on:
+      - minio
+      - generator
+    volumes:
+      - ./data:/data
+    networks: [etl_net]
+    entrypoint: ["/bin/sh","-c"]
+    command: >
+      'set -euo pipefail
+       echo "[mc] start $(date -Is)"
+       echo "[mc] waiting for MinIO at http://minio:9000 ..."
+       i=0
+       until mc alias set local http://minio:9000 minioadmin minioadmin; do
+         i=$((i+1))
+         echo "[mc] attempt $i failed; retry in 2s"
+         sleep 2
+       done
+       echo "[mc] alias configured"
+
+       echo "[mc] waiting for CSV in /data ..."
+       until ls /data/*.csv >/dev/null 2>&1; do
+         sleep 1
+       done
+       echo "[mc] found files:"
+       ls -1 /data/*.csv
+
+       echo "[mc] creating bucket (idempotent) ..."
+       mc mb -p local/shop-transactions || echo "[mc] bucket exists"
+
+       echo "[mc] uploading CSV to s3://shop-transactions ..."
+       mc cp /data/*.csv local/shop-transactions/ --recursive=false
+
+       echo "[mc] done $(date -Is)"'
+
+  db-setup:
+    image: postgres:15
+    container_name: db-setup
+    depends_on:
+      - postgres
+    environment:
+      PGPASSWORD: etl_pass
+    volumes:
+      - ./db/ddl.sql:/ddl.sql:ro
+    networks: [ etl_net ]
+    entrypoint: [ "/bin/bash","-lc" ]
+    command: |
+      echo "[db-setup] waiting for postgres...";
+      until pg_isready -h postgres -U etl_user -d shop; do sleep 1; done;
+      echo "[db-setup] applying DDL...";
+      psql -h postgres -U etl_user -d shop -f /ddl.sql;
+      echo "[db-setup] ensure superset DB exists...";
+      psql -h postgres -U etl_user -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='superset'" | grep -q 1 \
+        || psql -h postgres -U etl_user -d postgres -c "CREATE DATABASE superset OWNER etl_user";
+      echo "[db-setup] done.";
+
+  superset-init:
+    image: apache/superset:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-setup:
+        condition: service_completed_successfully
+    networks: [etl_net]
+    environment:
+      SUPERSET_ENV: production
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_SECRET_KEY: supersecretkey
+      SUPERSET_HOME: /app/superset_home
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    command: ["/bin/bash","-lc","superset db upgrade && superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin || true && superset init"]
+    restart: "no"
+
+  superset:
+    image: apache/superset:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      superset-init:
+        condition: service_completed_successfully
+    networks: [etl_net]
+    environment:
+      SUPERSET_ENV: production
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_SECRET_KEY: supersecretkey
+      SUPERSET_HOME: /app/superset_home
+    volumes:
+      - superset_home:/app/superset_home
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    ports:
+      - "8088:8088"
+    command: ["/bin/bash","-lc","superset run -h 0.0.0.0 -p 8088"]
+
+
+
+volumes:
+  minio_data:
+  pg_data:
+  superset_home:
+
+networks:
+  etl_net:
+    driver: bridge

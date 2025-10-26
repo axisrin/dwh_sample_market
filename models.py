@@ -14,7 +14,7 @@ class Client:
 class Merchant:
     merchant_id: int
     latitude: float
-    longitude: float
+    longtitude: float
     mcc_cd: int
 
 # Transactions
