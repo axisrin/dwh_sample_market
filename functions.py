@@ -39,7 +39,7 @@ def generate_transactions(n:int, clients: List[Client], merchants: List[Merchant
     for i in range(1, n+1):
         client = random.choice(clients)
         merchant = random.choice(merchants)
-        transaction_dttm = start_date + timedelta(days=random.randint(0, 1095))
+        transaction_dttm = start_date + timedelta(days=random.randint(0, 365))
         transaction_amt = round(random.uniform(5,500), 2)
         transactions.append(Transaction(
             transaction_id=i,
