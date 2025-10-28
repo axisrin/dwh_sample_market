@@ -109,22 +109,16 @@ services:
     image: postgres:15
     container_name: db-setup
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       PGPASSWORD: etl_pass
     volumes:
       - ./db/ddl.sql:/ddl.sql:ro
+      - ./db/entrypoint.sh:/entrypoint.sh:ro
     networks: [ etl_net ]
-    entrypoint: [ "/bin/bash","-lc" ]
-    command: |
-      echo "[db-setup] waiting for postgres...";
-      until pg_isready -h postgres -U etl_user -d shop; do sleep 1; done;
-      echo "[db-setup] applying DDL...";
-      psql -h postgres -U etl_user -d shop -f /ddl.sql;
-      echo "[db-setup] ensure superset DB exists...";
-      psql -h postgres -U etl_user -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='superset'" | grep -q 1 \
-        || psql -h postgres -U etl_user -d postgres -c "CREATE DATABASE superset OWNER etl_user";
-      echo "[db-setup] done.";
+    entrypoint: ["/bin/bash","/entrypoint.sh"]
+
 
   superset-create-db:
     image: postgres:15
