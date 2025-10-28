@@ -135,7 +135,7 @@ services:
     networks: [etl_net]
     environment:
       PGPASSWORD: etl_pass
-    command: "/bin/bash -lc \"until pg_isready -h postgres -U etl_user -d postgres; do sleep 1; done; psql -h postgres -U etl_user -d postgres -tc 'SELECT 1 FROM pg_database WHERE datname=''superset''' | grep -q 1 || psql -h postgres -U etl_user -d postgres -c 'CREATE DATABASE superset OWNER etl_user'\""
+    command: "/bin/bash -lc \"set -e; until pg_isready -h postgres -U etl_user -d postgres; do sleep 1; done; psql -h postgres -U etl_user -d postgres -Atc \\\"SELECT 1 FROM pg_database WHERE datname='superset'\\\" | grep -q 1 || psql -h postgres -U etl_user -d postgres -c \\\"CREATE DATABASE superset OWNER etl_user\\\"\""
     restart: "no"
 
   superset-init:
