@@ -126,12 +126,27 @@ services:
         || psql -h postgres -U etl_user -d postgres -c "CREATE DATABASE superset OWNER etl_user";
       echo "[db-setup] done.";
 
+  superset-create-db:
+    image: postgres:15
+    container_name: superset-create-db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [etl_net]
+    environment:
+      PGPASSWORD: etl_pass
+    command: "/bin/bash -lc \"until pg_isready -h postgres -U etl_user -d postgres; do sleep 1; done; psql -h postgres -U etl_user -d postgres -tc 'SELECT 1 FROM pg_database WHERE datname=''superset''' | grep -q 1 || psql -h postgres -U etl_user -d postgres -c 'CREATE DATABASE superset OWNER etl_user'\""
+    restart: "no"
+
   superset-init:
+    container_name: superset-init
     image: apache/superset:latest
     depends_on:
       postgres:
         condition: service_healthy
       db-setup:
+        condition: service_completed_successfully
+      superset-create-db:
         condition: service_completed_successfully
     networks: [etl_net]
     environment:
@@ -142,11 +157,12 @@ services:
     volumes:
       - superset_home:/app/superset_home
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
-    command: ["/bin/bash","-lc","superset db upgrade && superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin || true && superset init"]
+    command: "/bin/bash -lc \"pip install --no-cache-dir 'psycopg2-binary<2.10' && superset db upgrade && superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin || true && superset init\""
     restart: "no"
 
   superset:
     image: apache/superset:latest
+    container_name: superset
     depends_on:
       postgres:
         condition: service_healthy
@@ -163,7 +179,8 @@ services:
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
     ports:
       - "8088:8088"
-    command: ["/bin/bash","-lc","superset run -h 0.0.0.0 -p 8088"]
+    command: /bin/bash -lc 'pip install --no-cache-dir "psycopg2-binary<2.10" && superset run -h 0.0.0.0 -p 8088'
+
 
 
 
