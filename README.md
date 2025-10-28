@@ -46,6 +46,32 @@ s3_to_postgres_shop_work.json (шаблон для пайплайна загру
 5. Далее заходим в `ProcessGroup` и видим неактивные процессоры, нужно зайти в процессор `ListS3` и во вкладке `Properties` найти строку `AWS Credentials Provider Service`. Справа стоит значение этого свойства и три вертикальные точки. Нажимаем на три точки и выбираем опцию `Go to Service`. Находим наш сервис (начинается он с AWS) и в строке сервиса находим справа три точки, нажимаем и выбираем `Edit`. Видим два свойства `Access Key ID` и `Secret Access Key` , введите в эти свойства `minioadmin`. Нажимаем `Apply`, затем снова на три точки и выбираем `Enable`. Далее так же включаем сервис `CSVReader`. Следующий шаг нажать три точки напротив сервиса `DBCPConnectionPool` и выбрать опцию `Edit`. Нужно найти свойство `Password` и ввести в него `etl_pass`. После чего нажимаем `Apply` и включаем сервис так же, как и предыдущие. 
 
 Возвращаемся в процессор. Необходимо найти первую линию пайп-лайна с названием `Загрузка данных из s3 в postgres` и, начиная с первого блока сверху, нажать правой кнопкой мыши на блок и выбрать `Start`. После всех манипуляций с блоками, в результате работы первого пайплайна у вас будут загружены данные из MinIO в PostgreSQL. 
+Скрипт для формирования таблиц:
+```SQL
+-- Таблица торговых точек (мерчантов)
+CREATE TABLE IF NOT EXISTS public.merchants (
+    merchant_id   BIGINT PRIMARY KEY,
+    latitude      DOUBLE PRECISION,
+    longtitude    DOUBLE PRECISION,
+    mcc_cd        INTEGER
+);
+
+-- Таблица клиентов
+CREATE TABLE IF NOT EXISTS public.clients (
+    client_id BIGINT PRIMARY KEY,
+    gender    VARCHAR(10),
+    age       INTEGER
+);
+
+-- Таблица транзакций (факт)
+CREATE TABLE IF NOT EXISTS public.transactions (
+    transaction_id   BIGSERIAL PRIMARY KEY,
+    merchant_id      BIGINT REFERENCES public.merchants(merchant_id),
+    client_id        BIGINT REFERENCES public.clients(client_id),
+    transaction_dttm TIMESTAMP WITHOUT TIME ZONE,
+    transaction_amt  NUMERIC(12,2)
+);
+```
 
 Находим следующий пайплайн с подписью `Создание таблицы агрегатов`, процесс включения пайплайна аналогичен предыдущему, необходимо включить все блоки, но только здесь уже выполнить включение снизу-вверх, а самый вверхний блок включить выбрав не `Start`, а `Run Once`. В этом блоке выполняется скрипт создания таблицы для аггрегатов :
 ```SQL
