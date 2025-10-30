@@ -1,4 +1,4 @@
-set -Eeuxo pipefail
+set -Eeuxo
 
 echo "[db-setup] waiting for postgres..."
 until pg_isready -h postgres -U etl_user -d shop >/dev/null 2>&1; do
