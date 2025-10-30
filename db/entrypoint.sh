@@ -5,6 +5,7 @@ until pg_isready -h postgres -U etl_user -d shop >/dev/null 2>&1; do
   echo -n "."
   sleep 1
 done
+
 echo
 echo "[db-setup] postgres is ready"
 
