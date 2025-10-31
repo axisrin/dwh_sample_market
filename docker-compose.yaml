@@ -133,8 +133,11 @@ services:
     restart: "no"
 
   superset-init:
+    build:
+      context: .
+      dockerfile: Dockerfile.sup
+    image: my_superset_custom:latest
     container_name: superset-init
-    image: apache/superset:latest
     depends_on:
       postgres:
         condition: service_healthy
@@ -147,15 +150,19 @@ services:
       SUPERSET_ENV: production
       SUPERSET_LOAD_EXAMPLES: "no"
       SUPERSET_SECRET_KEY: supersecretkey
-      SUPERSET_HOME: /app/superset_home
     volumes:
-      - superset_home:/app/superset_home
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
-    command: "/bin/bash -lc \"pip install --no-cache-dir 'psycopg2-binary<2.10' && superset db upgrade && superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin || true && superset init\""
+    command: >
+      /bin/bash -lc "
+        /app/.venv/bin/pip3 install psycopg2-binary &&
+        /app/.venv/bin/superset db upgrade &&
+        /app/.venv/bin/superset fab create-admin --username admin --firstname Superset --lastname Admin --email admin@superset.com --password admin || true &&
+        /app/.venv/bin/superset init
+      "
     restart: "no"
 
   superset:
-    image: apache/superset:latest
+    image: my_superset_custom:latest    # используем тот же образ
     container_name: superset
     depends_on:
       postgres:
@@ -167,13 +174,14 @@ services:
       SUPERSET_ENV: production
       SUPERSET_LOAD_EXAMPLES: "no"
       SUPERSET_SECRET_KEY: supersecretkey
-      SUPERSET_HOME: /app/superset_home
     volumes:
-      - superset_home:/app/superset_home
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
     ports:
       - "8088:8088"
-    command: /bin/bash -lc 'pip install --no-cache-dir "psycopg2-binary<2.10" && superset run -h 0.0.0.0 -p 8088'
+    command: >
+      /bin/bash -lc "
+      /app/.venv/bin/pip3 install psycopg2-binary &&
+      /app/.venv/bin/superset run -h 0.0.0.0 -p 8088"
 
 
 
@@ -181,7 +189,6 @@ services:
 volumes:
   minio_data:
   pg_data:
-  superset_home:
 
 networks:
   etl_net:

@@ -1,0 +1,25 @@
+FROM apache/superset:latest
+
+# Переключаемся на root, чтобы можно было писать в /app/.venv
+USER root
+
+# Обновляем PATH чтобы виртуальное окружение было активно
+ENV VIRTUAL_ENV=/app/.venv \
+    PATH="/app/.venv/bin:$PATH"
+
+# Устанавливаем pip и нужный драйвер внутри виртуального окружения
+RUN python3 -m ensurepip --upgrade \
+    && pip3 install --no-cache-dir --upgrade pip setuptools \
+    && pip3 install --no-cache-dir psycopg2-binary
+
+# Устанавливаем права на виртуальное окружение (если нужно)
+RUN chown -R superset:superset /app/.venv
+
+# Возвращаемся к пользователю superset
+USER superset
+
+WORKDIR /app
+
+# По желанию: копирование конфигурационных файлов, настроек
+COPY ./superset/superset_config.py /app/pythonpath/superset_config.py
+
